@@ -536,9 +536,18 @@ mk("TextLabel", {
 	ZIndex = 6
 })
 
-local pathBox = mk("TextBox", {
+local pathRow = mk("Frame", {
 	Size = UDim2.new(1, 0, 0, 38),
 	Position = UDim2.new(0, 0, 0, 20),
+	BackgroundTransparency = 1,
+	BorderSizePixel = 0,
+	Parent = decompPage,
+	ZIndex = 6
+})
+
+local pathBox = mk("TextBox", {
+	Size = UDim2.new(1, -44, 1, 0),
+	Position = UDim2.new(0, 0, 0, 0),
 	BackgroundColor3 = bgInput,
 	Text = "",
 	PlaceholderText = "game.Workspace.Script",
@@ -549,12 +558,36 @@ local pathBox = mk("TextBox", {
 	BorderSizePixel = 0,
 	ClearTextOnFocus = false,
 	TextXAlignment = Enum.TextXAlignment.Left,
-	Parent = decompPage,
+	Parent = pathRow,
 	ZIndex = 6
 })
 corner(pathBox, 10)
 local pathStroke = stroke(pathBox, borderSub, 1)
 mk("UIPadding", {PaddingLeft = UDim.new(0, 14), Parent = pathBox})
+
+local browseBtn = mk("TextButton", {
+	Size = UDim2.new(0, 38, 0, 38),
+	Position = UDim2.new(1, -38, 0, 0),
+	BackgroundColor3 = bgElevated,
+	Text = "",
+	BorderSizePixel = 0,
+	AutoButtonColor = false,
+	Parent = pathRow,
+	ZIndex = 6
+})
+corner(browseBtn, 10)
+stroke(browseBtn, borderSub, 1)
+hover(browseBtn, bgElevated, Color3.fromRGB(35, 35, 50))
+mk("ImageLabel", {
+	Size = UDim2.new(0, 16, 0, 16),
+	Position = UDim2.new(0.5, 0, 0.5, 0),
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	BackgroundTransparency = 1,
+	Image = "rbxassetid://110568075123861",
+	ImageColor3 = txtSecondary,
+	Parent = browseBtn,
+	ZIndex = 7
+})
 
 pathBox.Focused:Connect(function()
 	tw(pathBox, 0.15, {BackgroundColor3 = Color3.fromRGB(26, 26, 40)})
@@ -1596,4 +1629,338 @@ dlSaveBtn.MouseButton1Click:Connect(function()
 		dlStatus.Text = "failed: " .. tostring(err):sub(1, 35)
 		dlStatus.TextColor3 = errorClr
 	end
+end)
+
+local SCRIPT_IMG = "rbxasset://textures/ClassImages.png"
+local SCRIPT_RECT = {
+	Script = {size = Vector2.new(16, 16), offset = Vector2.new(112, 0)},
+	LocalScript = {size = Vector2.new(16, 16), offset = Vector2.new(288, 0)},
+	ModuleScript = {size = Vector2.new(16, 16), offset = Vector2.new(608, 0)},
+}
+
+local explorerWin = mk("Frame", {
+	Size = UDim2.new(0, 360, 0, 440),
+	Position = UDim2.new(0.5, 0, 0.5, 0),
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	BackgroundColor3 = bgDark,
+	BorderSizePixel = 0,
+	Parent = sg,
+	ClipsDescendants = true,
+	Visible = false,
+	ZIndex = 250
+})
+corner(explorerWin, 14)
+stroke(explorerWin, Color3.fromRGB(45, 45, 65), 1)
+
+local expAccent = mk("Frame", {
+	Size = UDim2.new(1, 0, 0, 2),
+	Position = UDim2.new(0, 0, 0, 0),
+	BorderSizePixel = 0,
+	Parent = explorerWin,
+	ZIndex = 260
+})
+grad(expAccent, accentPrimary, accentSecondary, 0)
+
+local expTitle = mk("Frame", {
+	Size = UDim2.new(1, 0, 0, 36),
+	Position = UDim2.new(0, 0, 0, 2),
+	BackgroundColor3 = bgCard,
+	BorderSizePixel = 0,
+	Parent = explorerWin,
+	ZIndex = 258
+})
+
+mk("ImageLabel", {
+	Size = UDim2.new(0, 14, 0, 14),
+	Position = UDim2.new(0, 12, 0.5, 0),
+	AnchorPoint = Vector2.new(0, 0.5),
+	BackgroundTransparency = 1,
+	Image = "rbxassetid://85577554337861",
+	ImageColor3 = accentPrimary,
+	Parent = expTitle,
+	ZIndex = 259
+})
+
+mk("TextLabel", {
+	Size = UDim2.new(1, -80, 1, 0),
+	Position = UDim2.new(0, 32, 0, 0),
+	BackgroundTransparency = 1,
+	Text = "Script Browser",
+	TextColor3 = txtPrimary,
+	TextSize = 12,
+	Font = Enum.Font.GothamBold,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	Parent = expTitle,
+	ZIndex = 259
+})
+
+local expCloseBtn = mk("TextButton", {
+	Size = UDim2.new(0, 26, 0, 26),
+	Position = UDim2.new(1, -34, 0.5, 0),
+	AnchorPoint = Vector2.new(0, 0.5),
+	BackgroundColor3 = bgElevated,
+	Text = "✕",
+	TextColor3 = txtSecondary,
+	TextSize = 11,
+	Font = Enum.Font.GothamBold,
+	BorderSizePixel = 0,
+	AutoButtonColor = false,
+	Parent = expTitle,
+	ZIndex = 259
+})
+corner(expCloseBtn, 6)
+hover(expCloseBtn, bgElevated, Color3.fromRGB(200, 50, 50))
+
+local expSearchBox = mk("TextBox", {
+	Size = UDim2.new(1, -20, 0, 30),
+	Position = UDim2.new(0, 10, 0, 42),
+	BackgroundColor3 = bgInput,
+	Text = "",
+	PlaceholderText = "search scripts...",
+	TextColor3 = txtPrimary,
+	PlaceholderColor3 = txtMuted,
+	TextSize = 11,
+	Font = Enum.Font.GothamMedium,
+	BorderSizePixel = 0,
+	ClearTextOnFocus = false,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	Parent = explorerWin,
+	ZIndex = 258
+})
+corner(expSearchBox, 8)
+stroke(expSearchBox, borderSub, 1)
+mk("UIPadding", {PaddingLeft = UDim.new(0, 10), Parent = expSearchBox})
+
+local expScroll = mk("ScrollingFrame", {
+	Size = UDim2.new(1, -20, 1, -82),
+	Position = UDim2.new(0, 10, 0, 76),
+	BackgroundColor3 = Color3.fromRGB(14, 14, 20),
+	BorderSizePixel = 0,
+	ScrollBarThickness = 6,
+	ScrollBarImageColor3 = Color3.fromRGB(60, 60, 80),
+	CanvasSize = UDim2.new(0, 0, 0, 0),
+	AutomaticCanvasSize = Enum.AutomaticSize.Y,
+	Parent = explorerWin,
+	ZIndex = 255,
+	TopImage = "rbxasset://textures/ui/Scroll/scroll-middle.png",
+	BottomImage = "rbxasset://textures/ui/Scroll/scroll-middle.png",
+	MidImage = "rbxasset://textures/ui/Scroll/scroll-middle.png",
+})
+corner(expScroll, 8)
+mk("UIListLayout", {SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 1), Parent = expScroll})
+
+local expSelected = nil
+local expSelectBtn = nil
+local allScriptItems = {}
+
+local function getFullPath(inst)
+	local parts = {}
+	local cur = inst
+	while cur and cur ~= game do
+		table.insert(parts, 1, cur.Name)
+		cur = cur.Parent
+	end
+	if #parts > 0 then
+		local first = parts[1]
+		local svcOk = pcall(game.GetService, game, first)
+		if svcOk then
+			parts[1] = 'game:GetService("' .. first .. '")'
+			return table.concat(parts, ".")
+		end
+	end
+	return "game." .. table.concat(parts, ".")
+end
+
+local function collectScripts(root, list)
+	local ok, children = pcall(function() return root:GetChildren() end)
+	if not ok then return end
+	for _, child in ipairs(children) do
+		if child:IsA("Script") or child:IsA("LocalScript") or child:IsA("ModuleScript") then
+			table.insert(list, child)
+		end
+		collectScripts(child, list)
+	end
+end
+
+local function clearExpItems()
+	for _, item in ipairs(allScriptItems) do
+		if item.frame then item.frame:Destroy() end
+	end
+	allScriptItems = {}
+	expSelected = nil
+	if expSelectBtn then expSelectBtn:Destroy() expSelectBtn = nil end
+end
+
+local function hideSelectBtn()
+	if expSelectBtn then
+		expSelectBtn:Destroy()
+		expSelectBtn = nil
+	end
+end
+
+local function showSelectBtn(itemFrame, inst)
+	hideSelectBtn()
+	expSelected = inst
+	expSelectBtn = mk("TextButton", {
+		Size = UDim2.new(0, 52, 0, 22),
+		Position = UDim2.new(1, -58, 0.5, 0),
+		AnchorPoint = Vector2.new(0, 0.5),
+		BackgroundColor3 = accentPrimary,
+		Text = "Select",
+		TextColor3 = Color3.fromRGB(255, 255, 255),
+		TextSize = 10,
+		Font = Enum.Font.GothamBold,
+		BorderSizePixel = 0,
+		AutoButtonColor = false,
+		Parent = itemFrame,
+		ZIndex = 257
+	})
+	corner(expSelectBtn, 6)
+
+	expSelectBtn.MouseButton1Click:Connect(function()
+		pathBox.Text = getFullPath(inst)
+		tw(explorerWin, 0.2, {BackgroundTransparency = 0.5})
+		task.delay(0.21, function() explorerWin.Visible = false end)
+		hideSelectBtn()
+	end)
+end
+
+local function renderExpItems(filter)
+	clearExpItems()
+	local scripts = {}
+	collectScripts(game, scripts)
+
+	local low = filter and filter:lower() or ""
+	local order = 0
+
+	for _, inst in ipairs(scripts) do
+		local name = inst.Name
+		local fullPath = getFullPath(inst)
+		if low ~= "" and not name:lower():find(low, 1, true) and not fullPath:lower():find(low, 1, true) then
+			continue
+		end
+
+		order = order + 1
+		local cls = inst.ClassName
+		local rectData = SCRIPT_RECT[cls]
+
+		local itemFrame = mk("Frame", {
+			Size = UDim2.new(1, 0, 0, 36),
+			BackgroundColor3 = Color3.fromRGB(16, 16, 24),
+			BorderSizePixel = 0,
+			LayoutOrder = order,
+			Parent = expScroll,
+			ZIndex = 256
+		})
+
+		local icon = mk("ImageLabel", {
+			Size = UDim2.new(0, 16, 0, 16),
+			Position = UDim2.new(0, 8, 0.5, 0),
+			AnchorPoint = Vector2.new(0, 0.5),
+			BackgroundTransparency = 1,
+			Image = SCRIPT_IMG,
+			ImageRectSize = rectData and rectData.size or Vector2.new(16, 16),
+			ImageRectOffset = rectData and rectData.offset or Vector2.new(112, 0),
+			Parent = itemFrame,
+			ZIndex = 257
+		})
+
+		mk("TextLabel", {
+			Size = UDim2.new(1, -90, 0, 14),
+			Position = UDim2.new(0, 30, 0, 4),
+			BackgroundTransparency = 1,
+			Text = name,
+			TextColor3 = txtPrimary,
+			TextSize = 11,
+			Font = Enum.Font.GothamBold,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextTruncate = Enum.TextTruncate.AtEnd,
+			Parent = itemFrame,
+			ZIndex = 257
+		})
+
+		mk("TextLabel", {
+			Size = UDim2.new(1, -90, 0, 12),
+			Position = UDim2.new(0, 30, 0, 19),
+			BackgroundTransparency = 1,
+			Text = fullPath,
+			TextColor3 = txtMuted,
+			TextSize = 8,
+			Font = Enum.Font.Code,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextTruncate = Enum.TextTruncate.AtEnd,
+			Parent = itemFrame,
+			ZIndex = 257
+		})
+
+		local clickArea = mk("TextButton", {
+			Size = UDim2.new(1, 0, 1, 0),
+			BackgroundTransparency = 1,
+			Text = "",
+			Parent = itemFrame,
+			ZIndex = 258
+		})
+
+		clickArea.MouseButton1Click:Connect(function()
+			for _, si in ipairs(allScriptItems) do
+				if si.frame then
+					si.frame.BackgroundColor3 = Color3.fromRGB(16, 16, 24)
+				end
+			end
+			itemFrame.BackgroundColor3 = Color3.fromRGB(28, 28, 45)
+			showSelectBtn(itemFrame, inst)
+		end)
+
+		clickArea.MouseLeave:Connect(function()
+			task.delay(0.3, function()
+				if expSelected ~= inst then
+					itemFrame.BackgroundColor3 = Color3.fromRGB(16, 16, 24)
+				end
+			end)
+		end)
+
+		table.insert(allScriptItems, {frame = itemFrame, inst = inst, name = name, path = fullPath})
+	end
+end
+
+local function openExplorer()
+	explorerWin.Visible = true
+	explorerWin.Size = UDim2.new(0, 360, 0, 0)
+	explorerWin.BackgroundTransparency = 0.3
+	tw(explorerWin, 0.3, {Size = UDim2.new(0, 360, 0, 440), BackgroundTransparency = 0})
+	expSearchBox.Text = ""
+	task.spawn(function()
+		renderExpItems("")
+	end)
+end
+
+local function closeExplorer()
+	tw(explorerWin, 0.2, {BackgroundTransparency = 0.5})
+	task.delay(0.21, function()
+		explorerWin.Visible = false
+		clearExpItems()
+	end)
+end
+
+expCloseBtn.MouseButton1Click:Connect(closeExplorer)
+browseBtn.MouseButton1Click:Connect(openExplorer)
+
+local expSearchDebounce = false
+expSearchBox.FocusLost:Connect(function()
+	local q = expSearchBox.Text
+	task.spawn(function()
+		renderExpItems(q)
+	end)
+end)
+
+expSearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+	if expSearchDebounce then return end
+	expSearchDebounce = true
+	task.delay(0.4, function()
+		expSearchDebounce = false
+		local q = expSearchBox.Text
+		task.spawn(function()
+			renderExpItems(q)
+		end)
+	end)
 end)
