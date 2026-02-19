@@ -926,28 +926,59 @@ decompBtn.MouseButton1Click:Connect(function()
 	local decompResult = nil
 
 	local ok, err = pcall(function()
-		local clean = pth
-		clean = clean:gsub('game:GetService%("([^"]+)"%)', "%1")
-		clean = clean:gsub("game:GetService%('([^']+)'%)", "%1")
-		clean = clean:gsub("^game%.", "")
-		clean = clean:gsub("^Game%.", "")
+		local target = nil
 
-		local segs = clean:split(".")
-		local cur = game
-		for _, seg in ipairs(segs) do
-			local child = cur:FindFirstChild(seg)
-			if not child then
-				child = pcall(function() return game:GetService(seg) end) and game:GetService(seg) or nil
+		local svcMatch = pth:match('GetService%(%s*["\'](.-)["\'')
+		if svcMatch then
+			local afterSvc = pth:match('GetService%(.-%)(.*)')
+			if afterSvc then
+				afterSvc = afterSvc:gsub("^%.", "")
+				local svcOk, svc = pcall(game.GetService, game, svcMatch)
+				if svcOk and svc then
+					if afterSvc == "" then
+						target = svc
+					else
+						local cur = svc
+						for _, seg in ipairs(afterSvc:split(".")) do
+							if seg ~= "" then
+								cur = cur:FindFirstChild(seg, true)
+								if not cur then error("not found: " .. seg) end
+							end
+						end
+						target = cur
+					end
+				end
 			end
-			if not child then error("not found: " .. seg) end
-			cur = child
 		end
 
-		if not (cur:IsA("ModuleScript") or cur:IsA("LocalScript") or cur:IsA("Script")) then
-			error("not a script")
+		if not target then
+			local clean = pth:gsub("^game%.", ""):gsub("^Game%.", "")
+			local segs = clean:split(".")
+			local cur = game
+			for _, seg in ipairs(segs) do
+				if seg ~= "" then
+					local child = cur:FindFirstChild(seg)
+					if not child then
+						local sOk, svc = pcall(game.GetService, game, seg)
+						if sOk and svc then child = svc end
+					end
+					if not child then
+						child = cur:FindFirstChild(seg, true)
+					end
+					if not child then error("not found: " .. seg) end
+					cur = child
+				end
+			end
+			target = cur
 		end
 
-		local b = getscriptbytecode(cur)
+		if not target then error("could not resolve path") end
+
+		if not (target:IsA("ModuleScript") or target:IsA("LocalScript") or target:IsA("Script")) then
+			error("not a script: " .. target.ClassName)
+		end
+
+		local b = getscriptbytecode(target)
 		local e = crypt.base64encode(b)
 		local r = request({Url = getUrl("/luau/decompile"), Method = "POST", Body = e})
 
