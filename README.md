@@ -93,6 +93,7 @@ prebuilt binaries on the [releases page](https://github.com/DexCodeSX/fat/releas
 
 | file | platform |
 |------|----------|
+| `medal-x86_64.exe` | windows 64-bit |
 | `medal-aarch64-android` | termux / android (arm64) |
 | `medal-x86_64-linux-musl` | linux (x86_64, static linked) |
 | `medal-x86_64-macos` | macos intel |
