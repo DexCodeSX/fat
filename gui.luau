@@ -922,6 +922,9 @@ decompBtn.MouseButton1Click:Connect(function()
 	startPulse(dDot)
 	resultBox.Text = ""
 
+	local t0 = tick()
+	local decompResult = nil
+
 	local ok, err = pcall(function()
 		local segs = pth:split(".")
 		local cur = game
@@ -939,6 +942,7 @@ decompBtn.MouseButton1Click:Connect(function()
 		local r = request({Url = getUrl("/luau/decompile"), Method = "POST", Body = e})
 
 		if r and r.Body then
+			decompResult = r.Body
 			resultBox.Text = r.Body:sub(1, 500)
 			if setclipboard then
 				setclipboard(r.Body)
@@ -946,11 +950,18 @@ decompBtn.MouseButton1Click:Connect(function()
 		end
 	end)
 
+	local took = tick() - t0
+
 	stopPulse(dDot)
 	decompBtn.Text = "Decompile"
 
-	if ok then
-		setDecompStatus("Done - copied to clipboard", successClr)
+	if ok and decompResult then
+		setDecompStatus("Done - " .. string.format("%.2fs", took) .. " - copied", successClr)
+		task.delay(0.3, function()
+			openEditor(decompResult, pth, took)
+		end)
+	elseif ok then
+		setDecompStatus("Done but empty response", warnClr)
 	else
 		setDecompStatus("Error: " .. tostring(err):sub(1, 40), errorClr)
 	end
@@ -991,3 +1002,557 @@ local footerLbl = mk("TextLabel", {
 	Parent = main,
 	ZIndex = 10
 })
+
+local ICONS = {
+	copy = "rbxassetid://78979572434545",
+	download = "rbxassetid://134814648082393",
+	x = "rbxassetid://76821953846248",
+	save = "rbxassetid://126116963775616",
+	file = "rbxassetid://74748492079329",
+}
+
+local editorData = {
+	source = "",
+	scriptPath = "",
+	decompTime = 0,
+}
+
+local editorWin = mk("Frame", {
+	Size = UDim2.new(0, 540, 0, 420),
+	Position = UDim2.new(0.5, 0, 0.5, 0),
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	BackgroundColor3 = bgDark,
+	BorderSizePixel = 0,
+	Parent = sg,
+	ClipsDescendants = true,
+	Visible = false,
+	ZIndex = 200
+})
+corner(editorWin, 14)
+stroke(editorWin, Color3.fromRGB(45, 45, 65), 1)
+
+local edAccent = mk("Frame", {
+	Size = UDim2.new(1, 0, 0, 2),
+	Position = UDim2.new(0, 0, 0, 0),
+	BorderSizePixel = 0,
+	Parent = editorWin,
+	ZIndex = 210
+})
+grad(edAccent, accentPrimary, accentSecondary, 0)
+
+local edTitle = mk("Frame", {
+	Size = UDim2.new(1, 0, 0, 38),
+	Position = UDim2.new(0, 0, 0, 2),
+	BackgroundColor3 = bgCard,
+	BorderSizePixel = 0,
+	Parent = editorWin,
+	ZIndex = 208
+})
+
+local edTitleIcon = mk("ImageLabel", {
+	Size = UDim2.new(0, 14, 0, 14),
+	Position = UDim2.new(0, 12, 0.5, 0),
+	AnchorPoint = Vector2.new(0, 0.5),
+	BackgroundTransparency = 1,
+	Image = ICONS.file,
+	ImageColor3 = accentPrimary,
+	Parent = edTitle,
+	ZIndex = 209
+})
+
+local edTitleLbl = mk("TextLabel", {
+	Size = UDim2.new(1, -120, 1, 0),
+	Position = UDim2.new(0, 32, 0, 0),
+	BackgroundTransparency = 1,
+	Text = "Fat - Notepad",
+	TextColor3 = txtPrimary,
+	TextSize = 12,
+	Font = Enum.Font.GothamBold,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	TextTruncate = Enum.TextTruncate.AtEnd,
+	Parent = edTitle,
+	ZIndex = 209
+})
+
+do
+	local dragging, dragStart, startPos
+	edTitle.InputBegan:Connect(function(i)
+		if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+			dragging = true
+			dragStart = i.Position
+			startPos = editorWin.Position
+		end
+	end)
+	uis.InputChanged:Connect(function(i)
+		if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+			local delta = i.Position - dragStart
+			editorWin.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+		end
+	end)
+	uis.InputEnded:Connect(function(i)
+		if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+			dragging = false
+		end
+	end)
+end
+
+local edCopyBtn = mk("TextButton", {
+	Size = UDim2.new(0, 28, 0, 28),
+	Position = UDim2.new(1, -100, 0.5, 0),
+	AnchorPoint = Vector2.new(0, 0.5),
+	BackgroundColor3 = bgElevated,
+	Text = "",
+	BorderSizePixel = 0,
+	AutoButtonColor = false,
+	Parent = edTitle,
+	ZIndex = 209
+})
+corner(edCopyBtn, 6)
+hover(edCopyBtn, bgElevated, Color3.fromRGB(45, 45, 60))
+mk("ImageLabel", {
+	Size = UDim2.new(0, 14, 0, 14),
+	Position = UDim2.new(0.5, 0, 0.5, 0),
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	BackgroundTransparency = 1,
+	Image = ICONS.copy,
+	ImageColor3 = txtSecondary,
+	Parent = edCopyBtn,
+	ZIndex = 210
+})
+
+local edDlBtn = mk("TextButton", {
+	Size = UDim2.new(0, 28, 0, 28),
+	Position = UDim2.new(1, -68, 0.5, 0),
+	AnchorPoint = Vector2.new(0, 0.5),
+	BackgroundColor3 = bgElevated,
+	Text = "",
+	BorderSizePixel = 0,
+	AutoButtonColor = false,
+	Parent = edTitle,
+	ZIndex = 209
+})
+corner(edDlBtn, 6)
+hover(edDlBtn, bgElevated, Color3.fromRGB(45, 45, 60))
+mk("ImageLabel", {
+	Size = UDim2.new(0, 14, 0, 14),
+	Position = UDim2.new(0.5, 0, 0.5, 0),
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	BackgroundTransparency = 1,
+	Image = ICONS.download,
+	ImageColor3 = txtSecondary,
+	Parent = edDlBtn,
+	ZIndex = 210
+})
+
+local edCloseBtn = mk("TextButton", {
+	Size = UDim2.new(0, 28, 0, 28),
+	Position = UDim2.new(1, -36, 0.5, 0),
+	AnchorPoint = Vector2.new(0, 0.5),
+	BackgroundColor3 = bgElevated,
+	Text = "✕",
+	TextColor3 = txtSecondary,
+	TextSize = 11,
+	Font = Enum.Font.GothamBold,
+	BorderSizePixel = 0,
+	AutoButtonColor = false,
+	Parent = edTitle,
+	ZIndex = 209
+})
+corner(edCloseBtn, 6)
+hover(edCloseBtn, bgElevated, Color3.fromRGB(200, 50, 50))
+
+local edInfoBar = mk("Frame", {
+	Size = UDim2.new(1, 0, 0, 22),
+	Position = UDim2.new(0, 0, 0, 40),
+	BackgroundColor3 = Color3.fromRGB(14, 14, 22),
+	BorderSizePixel = 0,
+	Parent = editorWin,
+	ZIndex = 207
+})
+
+local edInfoLbl = mk("TextLabel", {
+	Size = UDim2.new(1, -16, 1, 0),
+	Position = UDim2.new(0, 8, 0, 0),
+	BackgroundTransparency = 1,
+	Text = "",
+	TextColor3 = txtMuted,
+	TextSize = 9,
+	Font = Enum.Font.Code,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	TextTruncate = Enum.TextTruncate.AtEnd,
+	Parent = edInfoBar,
+	ZIndex = 208
+})
+
+local edBody = mk("ScrollingFrame", {
+	Size = UDim2.new(1, 0, 1, -62),
+	Position = UDim2.new(0, 0, 0, 62),
+	BackgroundColor3 = Color3.fromRGB(16, 16, 24),
+	BorderSizePixel = 0,
+	ScrollBarThickness = 8,
+	ScrollBarImageColor3 = Color3.fromRGB(60, 60, 80),
+	CanvasSize = UDim2.new(0, 0, 0, 0),
+	AutomaticCanvasSize = Enum.AutomaticSize.XY,
+	Parent = editorWin,
+	ZIndex = 205,
+	ScrollingDirection = Enum.ScrollingDirection.XY,
+	TopImage = "rbxasset://textures/ui/Scroll/scroll-middle.png",
+	BottomImage = "rbxasset://textures/ui/Scroll/scroll-middle.png",
+	MidImage = "rbxasset://textures/ui/Scroll/scroll-middle.png",
+})
+corner(edBody, 0)
+
+local lineCol = mk("Frame", {
+	Size = UDim2.new(0, 40, 0, 0),
+	Position = UDim2.new(0, 0, 0, 0),
+	BackgroundColor3 = Color3.fromRGB(14, 14, 20),
+	BorderSizePixel = 0,
+	Parent = edBody,
+	ZIndex = 206,
+	AutomaticSize = Enum.AutomaticSize.Y,
+})
+
+local codeCol = mk("Frame", {
+	Size = UDim2.new(0, 0, 0, 0),
+	Position = UDim2.new(0, 44, 0, 0),
+	BackgroundTransparency = 1,
+	BorderSizePixel = 0,
+	Parent = edBody,
+	ZIndex = 206,
+	AutomaticSize = Enum.AutomaticSize.XY,
+})
+
+mk("UIListLayout", {SortOrder = Enum.SortOrder.LayoutOrder, Parent = lineCol})
+mk("UIListLayout", {SortOrder = Enum.SortOrder.LayoutOrder, Parent = codeCol})
+
+local kwColors = {
+	["local"] = Color3.fromRGB(198, 120, 221),
+	["function"] = Color3.fromRGB(198, 120, 221),
+	["end"] = Color3.fromRGB(198, 120, 221),
+	["if"] = Color3.fromRGB(198, 120, 221),
+	["then"] = Color3.fromRGB(198, 120, 221),
+	["else"] = Color3.fromRGB(198, 120, 221),
+	["elseif"] = Color3.fromRGB(198, 120, 221),
+	["for"] = Color3.fromRGB(198, 120, 221),
+	["while"] = Color3.fromRGB(198, 120, 221),
+	["do"] = Color3.fromRGB(198, 120, 221),
+	["repeat"] = Color3.fromRGB(198, 120, 221),
+	["until"] = Color3.fromRGB(198, 120, 221),
+	["return"] = Color3.fromRGB(198, 120, 221),
+	["in"] = Color3.fromRGB(198, 120, 221),
+	["not"] = Color3.fromRGB(198, 120, 221),
+	["and"] = Color3.fromRGB(198, 120, 221),
+	["or"] = Color3.fromRGB(198, 120, 221),
+	["true"] = Color3.fromRGB(209, 154, 102),
+	["false"] = Color3.fromRGB(209, 154, 102),
+	["nil"] = Color3.fromRGB(209, 154, 102),
+	["self"] = Color3.fromRGB(224, 108, 117),
+	["break"] = Color3.fromRGB(198, 120, 221),
+	["continue"] = Color3.fromRGB(198, 120, 221),
+}
+
+local numClr = Color3.fromRGB(209, 154, 102)
+local strClr = Color3.fromRGB(152, 195, 121)
+local commentClr = Color3.fromRGB(92, 99, 112)
+local defaultClr = Color3.fromRGB(200, 200, 220)
+local lineH = 16
+
+local function colorLine(lineText)
+	local parts = {}
+	local i = 1
+	local len = #lineText
+
+	while i <= len do
+		local ch = lineText:sub(i, i)
+
+		if lineText:sub(i, i + 1) == "--" then
+			table.insert(parts, {lineText:sub(i), commentClr})
+			break
+		elseif ch == '"' or ch == "'" then
+			local close = ch
+			local j = i + 1
+			while j <= len do
+				if lineText:sub(j, j) == close then j = j + 1 break end
+				if lineText:sub(j, j) == "\\" then j = j + 1 end
+				j = j + 1
+			end
+			table.insert(parts, {lineText:sub(i, j - 1), strClr})
+			i = j
+			continue
+		elseif ch:match("%d") then
+			local j = i
+			while j <= len and lineText:sub(j, j):match("[%d%.xXaAbBcCdDeEfF]") do j = j + 1 end
+			table.insert(parts, {lineText:sub(i, j - 1), numClr})
+			i = j
+			continue
+		elseif ch:match("[%a_]") then
+			local j = i
+			while j <= len and lineText:sub(j, j):match("[%w_]") do j = j + 1 end
+			local word = lineText:sub(i, j - 1)
+			local clr = kwColors[word] or defaultClr
+			table.insert(parts, {word, clr})
+			i = j
+			continue
+		else
+			local j = i
+			while j <= len do
+				local c2 = lineText:sub(j, j)
+				if c2:match("[%a_%d\"']") or lineText:sub(j, j + 1) == "--" then break end
+				j = j + 1
+			end
+			table.insert(parts, {lineText:sub(i, j - 1), defaultClr})
+			i = j
+			continue
+		end
+	end
+
+	return parts
+end
+
+local function renderEditor(src, path, took)
+	for _, c in pairs(lineCol:GetChildren()) do
+		if c:IsA("TextLabel") then c:Destroy() end
+	end
+	for _, c in pairs(codeCol:GetChildren()) do
+		if c:IsA("Frame") then c:Destroy() end
+	end
+
+	local lines = src:split("\n")
+	local header = "-- Script Path: " .. path .. "\n-- Took " .. string.format("%.2f", took) .. "s to decompile\n"
+	lines = (header .. src):split("\n")
+
+	edInfoLbl.Text = path .. "  |  " .. #lines .. " lines  |  " .. string.format("%.2fs", took)
+	edTitleLbl.Text = "Fat - " .. (path:match("[^%.]+$") or path)
+
+	local maxW = 400
+	for idx, line in ipairs(lines) do
+		mk("TextLabel", {
+			Size = UDim2.new(1, 0, 0, lineH),
+			BackgroundTransparency = 1,
+			Text = tostring(idx),
+			TextColor3 = Color3.fromRGB(55, 55, 75),
+			TextSize = 11,
+			Font = Enum.Font.Code,
+			LayoutOrder = idx,
+			Parent = lineCol,
+			ZIndex = 207
+		})
+
+		local row = mk("Frame", {
+			Size = UDim2.new(0, 0, 0, lineH),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			LayoutOrder = idx,
+			Parent = codeCol,
+			ZIndex = 207,
+			AutomaticSize = Enum.AutomaticSize.X,
+		})
+
+		local parts = colorLine(line)
+		local xOff = 0
+		for _, part in ipairs(parts) do
+			local txt = part[1]
+			local clr = part[2]
+			local w = #txt * 7
+			mk("TextLabel", {
+				Size = UDim2.new(0, w, 0, lineH),
+				Position = UDim2.new(0, xOff, 0, 0),
+				BackgroundTransparency = 1,
+				Text = txt,
+				TextColor3 = clr,
+				TextSize = 11,
+				Font = Enum.Font.Code,
+				TextXAlignment = Enum.TextXAlignment.Left,
+				Parent = row,
+				ZIndex = 207,
+				RichText = false,
+			})
+			xOff = xOff + w
+		end
+		if xOff > maxW then maxW = xOff end
+	end
+end
+
+local function openEditor(src, path, took)
+	editorData.source = src
+	editorData.scriptPath = path
+	editorData.decompTime = took
+	renderEditor(src, path, took)
+	editorWin.Visible = true
+	editorWin.Size = UDim2.new(0, 540, 0, 0)
+	editorWin.BackgroundTransparency = 0.3
+	tw(editorWin, 0.35, {Size = UDim2.new(0, 540, 0, 420), BackgroundTransparency = 0})
+end
+
+local function closeEditor()
+	tw(editorWin, 0.25, {Size = UDim2.new(0, 540, 0, 0), BackgroundTransparency = 0.3})
+	task.delay(0.26, function() editorWin.Visible = false end)
+end
+
+edCloseBtn.MouseButton1Click:Connect(closeEditor)
+
+edCopyBtn.MouseButton1Click:Connect(function()
+	if setclipboard and editorData.source ~= "" then
+		setclipboard(editorData.source)
+		edTitleLbl.Text = "Copied!"
+		task.delay(1.5, function()
+			edTitleLbl.Text = "Fat - " .. (editorData.scriptPath:match("[^%.]+$") or editorData.scriptPath)
+		end)
+	end
+end)
+
+local dlPopup = mk("Frame", {
+	Size = UDim2.new(0, 320, 0, 160),
+	Position = UDim2.new(0.5, 0, 0.5, 0),
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	BackgroundColor3 = bgDark,
+	BorderSizePixel = 0,
+	Parent = sg,
+	ClipsDescendants = true,
+	Visible = false,
+	ZIndex = 300
+})
+corner(dlPopup, 14)
+stroke(dlPopup, Color3.fromRGB(45, 45, 65), 1)
+
+local dlAccent = mk("Frame", {
+	Size = UDim2.new(1, 0, 0, 2),
+	Position = UDim2.new(0, 0, 0, 0),
+	BorderSizePixel = 0,
+	Parent = dlPopup,
+	ZIndex = 310
+})
+grad(dlAccent, accentPrimary, accentSecondary, 0)
+
+mk("TextLabel", {
+	Size = UDim2.new(1, -20, 0, 16),
+	Position = UDim2.new(0, 10, 0, 14),
+	BackgroundTransparency = 1,
+	Text = "SAVE AS",
+	TextColor3 = txtMuted,
+	TextSize = 9,
+	Font = Enum.Font.GothamBold,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	Parent = dlPopup,
+	ZIndex = 301
+})
+
+local dlNameBox = mk("TextBox", {
+	Size = UDim2.new(1, -20, 0, 34),
+	Position = UDim2.new(0, 10, 0, 34),
+	BackgroundColor3 = bgInput,
+	Text = "",
+	PlaceholderText = "filename.lua",
+	TextColor3 = txtPrimary,
+	PlaceholderColor3 = txtMuted,
+	TextSize = 12,
+	Font = Enum.Font.Code,
+	BorderSizePixel = 0,
+	ClearTextOnFocus = false,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	Parent = dlPopup,
+	ZIndex = 301
+})
+corner(dlNameBox, 8)
+stroke(dlNameBox, borderSub, 1)
+mk("UIPadding", {PaddingLeft = UDim.new(0, 10), Parent = dlNameBox})
+
+local dlBtnRow = mk("Frame", {
+	Size = UDim2.new(1, -20, 0, 36),
+	Position = UDim2.new(0, 10, 0, 80),
+	BackgroundTransparency = 1,
+	BorderSizePixel = 0,
+	Parent = dlPopup,
+	ZIndex = 301
+})
+
+local dlSaveBtn = mk("TextButton", {
+	Size = UDim2.new(0.48, 0, 1, 0),
+	Position = UDim2.new(0, 0, 0, 0),
+	BackgroundColor3 = accentPrimary,
+	Text = "Save",
+	TextColor3 = Color3.fromRGB(255, 255, 255),
+	TextSize = 12,
+	Font = Enum.Font.GothamBold,
+	BorderSizePixel = 0,
+	AutoButtonColor = false,
+	Parent = dlBtnRow,
+	ZIndex = 302
+})
+corner(dlSaveBtn, 8)
+hover(dlSaveBtn, accentPrimary, accentGlow)
+ripple(dlSaveBtn)
+
+local dlCancelBtn = mk("TextButton", {
+	Size = UDim2.new(0.48, 0, 1, 0),
+	Position = UDim2.new(0.52, 0, 0, 0),
+	BackgroundColor3 = bgElevated,
+	Text = "Close",
+	TextColor3 = txtPrimary,
+	TextSize = 12,
+	Font = Enum.Font.GothamBold,
+	BorderSizePixel = 0,
+	AutoButtonColor = false,
+	Parent = dlBtnRow,
+	ZIndex = 302
+})
+corner(dlCancelBtn, 8)
+stroke(dlCancelBtn, borderSub, 1)
+hover(dlCancelBtn, bgElevated, Color3.fromRGB(35, 35, 50))
+ripple(dlCancelBtn)
+
+local dlStatus = mk("TextLabel", {
+	Size = UDim2.new(1, -20, 0, 16),
+	Position = UDim2.new(0, 10, 0, 124),
+	BackgroundTransparency = 1,
+	Text = "",
+	TextColor3 = successClr,
+	TextSize = 10,
+	Font = Enum.Font.GothamMedium,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	Parent = dlPopup,
+	ZIndex = 301
+})
+
+local function closeDlPopup()
+	tw(dlPopup, 0.2, {BackgroundTransparency = 0.5})
+	task.delay(0.21, function() dlPopup.Visible = false end)
+end
+
+local function openDlPopup()
+	local pid = "0"
+	pcall(function() pid = tostring(game.PlaceId) end)
+	local shortPath = editorData.scriptPath:gsub("%.", "_")
+	dlNameBox.Text = pid .. "_" .. shortPath .. ".lua"
+	dlStatus.Text = ""
+	dlPopup.Visible = true
+	dlPopup.BackgroundTransparency = 0.5
+	tw(dlPopup, 0.2, {BackgroundTransparency = 0})
+end
+
+edDlBtn.MouseButton1Click:Connect(openDlPopup)
+dlCancelBtn.MouseButton1Click:Connect(closeDlPopup)
+
+dlSaveBtn.MouseButton1Click:Connect(function()
+	local fname = dlNameBox.Text
+	if fname == "" then
+		dlStatus.Text = "enter a filename"
+		dlStatus.TextColor3 = warnClr
+		return
+	end
+	local ok, err = pcall(function()
+		if writefile then
+			writefile(fname, editorData.source)
+		elseif isfile then
+			writefile(fname, editorData.source)
+		end
+	end)
+	if ok then
+		dlStatus.Text = "saved to workspace/" .. fname
+		dlStatus.TextColor3 = successClr
+		task.delay(2, closeDlPopup)
+	else
+		dlStatus.Text = "failed: " .. tostring(err):sub(1, 35)
+		dlStatus.TextColor3 = errorClr
+	end
+end)

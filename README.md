@@ -193,19 +193,13 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/luau/SynSaveInstance/
 
 ### gui script
 
-full gui with tabs, connection settings, one-click decompile, save instance. load it in your executor:
+full gui with tabs, connection settings, one-click decompile, save instance, built-in code editor with syntax highlighting and line numbers. load it in your executor:
 
 ```lua
 loadstring(game:HttpGet("https://raw.githubusercontent.com/DexCodeSX/fat/main/gui.luau"))()
 ```
 
-or if you wanna set the host before loading:
-
-```lua
-loadstring(game:HttpGet("https://raw.githubusercontent.com/DexCodeSX/fat/main/gui.luau"))()
-```
-
-the gui has a settings tab where you type in your server host (ngrok url, localhost, whatever) and pick http or https. then go to the decompile tab and do your thing.
+the gui has a settings tab where you type in your server host (ngrok url, localhost, whatever) and pick http or https. hit connect, go to decompile tab, paste a script path, hit decompile. opens a full notepad editor with the result - you can copy it or save to file.
 
 ## docker
 
