@@ -6,13 +6,13 @@ made by **bisam**
 
 ## install
 
-one command, works on termux, linux and mac. grabs the right binary for your system automatically.
+one command. works on termux, linux and mac. picks the right binary for your system.
 
 ```bash
 curl -sL https://raw.githubusercontent.com/DexCodeSX/fat/main/setup.sh | bash
 ```
 
-or clone it first if you want:
+or clone it:
 
 ```bash
 git clone https://github.com/DexCodeSX/fat.git
@@ -21,7 +21,17 @@ chmod +x setup.sh
 ./setup.sh
 ```
 
-thats it. binary goes to `~/medal`.
+binary goes to `~/medal`. thats it.
+
+## update
+
+same command. it checks what you have and only downloads if theres a new version.
+
+```bash
+curl -sL https://raw.githubusercontent.com/DexCodeSX/fat/main/setup.sh | bash
+```
+
+## setup by platform
 
 ### termux (android)
 
@@ -31,14 +41,14 @@ cd ~
 ./medal serve
 ```
 
-setup.sh will ask for storage permission automatically. if you wanna expose the server so your executor can reach it, use ngrok:
+storage permission gets requested automatically. to expose the server so your executor can reach it use ngrok:
 
 ```bash
 pkg install ngrok
 ngrok http 3000
 ```
 
-then copy the ngrok url into the gui script or your executor.
+copy the ngrok url into gui.luau or your executor script.
 
 ### linux
 
@@ -48,7 +58,7 @@ cd ~
 ./medal serve
 ```
 
-if you want it in your PATH:
+want it in PATH:
 
 ```bash
 sudo mv ~/medal /usr/local/bin/medal
@@ -63,7 +73,7 @@ cd ~
 ./medal serve
 ```
 
-if macos blocks it (gatekeeper):
+if gatekeeper blocks it:
 
 ```bash
 xattr -d com.apple.quarantine ~/medal
@@ -84,20 +94,31 @@ prebuilt binaries on the [releases page](https://github.com/DexCodeSX/fat/releas
 | file | platform |
 |------|----------|
 | `medal-aarch64-android` | termux / android (arm64) |
-| `medal-x86_64-linux-musl` | linux (x86_64, static) |
+| `medal-x86_64-linux-musl` | linux (x86_64, static linked) |
 | `medal-x86_64-macos` | macos intel |
-| `medal-aarch64-macos` | macos apple silicon |
+| `medal-aarch64-macos` | macos apple silicon (M1/M2/M3/M4) |
 
-only 64-bit supported. if you're on 32-bit you're out of luck sorry.
+64-bit only. 32-bit not supported.
+
+### how to release (for devs)
+
+push a version tag and github actions builds everything automatically:
+
+```bash
+git tag v0.1.2
+git push origin v0.1.2
+```
+
+builds all 4 binaries and uploads them to a release. done.
 
 ## script
 
-when using `medal serve`, you can use the decompiler straight from your executor.
-these scripts assume you're self-hosting. if you're using an API or ngrok, swap out `http://localhost:3000` with whatever your actual url is.
+when using `medal serve`, you can decompile straight from your executor.
+if you're using ngrok or some API, swap `http://localhost:3000` with your actual url.
 
 ### windows
 
-run `medal serve` on your pc, then in your executor:
+run `medal serve` on your pc, then in executor:
 
 ```lua
 getgenv().decompile = function(script_instance)
@@ -118,9 +139,9 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/luau/SynSaveInstance/
 })
 ```
 
-### android (real device, not emulator)
+### android (real device)
 
-run `medal serve` on termux, use ngrok to get a public url, then in your executor:
+run `medal serve` on termux, get a public url with ngrok, then:
 
 ```lua
 getgenv().decompile = function(script_instance)
@@ -144,14 +165,12 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/luau/SynSaveInstance/
 ### android emulator
 
 > **heads up:**
-> - if you got a proxy in wifi settings, add `10.0.2.2` to exceptions or just turn it off
-> - if you're on a VPN, make sure LAN connections are allowed
+> - proxy in wifi settings? add `10.0.2.2` to exceptions or turn it off
+> - VPN on? allow LAN connections
 
-run the server on your actual pc (not inside the emulator). `localhost` inside the emulator points to the emulator itself, not your pc. use `10.0.2.2` instead - thats how android emulators reach the host machine.
+run the server on your actual pc. `localhost` inside an emulator means the emulator itself not your pc. use `10.0.2.2` - thats how emulators talk to the host machine.
 
-test it: open `http://10.0.2.2:3000/` in the emulator browser. if it loads, you're good.
-
-if it still doesnt work, try ngrok instead.
+quick test: open `http://10.0.2.2:3000/` in the emulator browser. if it loads you're good. if not try ngrok.
 
 ```lua
 getgenv().decompile = function(script_instance)
@@ -174,7 +193,19 @@ loadstring(game:HttpGet("https://raw.githubusercontent.com/luau/SynSaveInstance/
 
 ### gui script
 
-theres a full gui in `gui.luau` - has connection settings, one-click decompile, save instance, the whole thing. just load it in your executor.
+full gui with tabs, connection settings, one-click decompile, save instance. load it in your executor:
+
+```lua
+loadstring(game:HttpGet("https://raw.githubusercontent.com/DexCodeSX/fat/main/gui.luau"))()
+```
+
+or if you wanna set the host before loading:
+
+```lua
+loadstring(game:HttpGet("https://raw.githubusercontent.com/DexCodeSX/fat/main/gui.luau"))()
+```
+
+the gui has a settings tab where you type in your server host (ngrok url, localhost, whatever) and pick http or https. then go to the decompile tab and do your thing.
 
 ## docker
 
@@ -185,18 +216,15 @@ docker run -p 3000:3000 fat
 
 ## building from source
 
-if you wanna build it yourself instead of using the prebuilt binaries:
-
 ```bash
-# needs rust nightly
 rustup default nightly
 cargo build --release --bin medal
-# binary is at target/release/medal
+# binary at target/release/medal
 ```
 
 ## license
 
-original [medal license](https://github.com/shrimp-nz/medal/blob/main/LICENSE.txt) (MIT) is kept for reference. this fork is **GPL v3** so people cant just take it and sell it.
+original [medal license](https://github.com/shrimp-nz/medal/blob/main/LICENSE.txt) (MIT) kept for reference. this fork is **GPL v3** so nobody can just sell it.
 
 ## credits
 
