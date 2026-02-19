@@ -926,11 +926,21 @@ decompBtn.MouseButton1Click:Connect(function()
 	local decompResult = nil
 
 	local ok, err = pcall(function()
-		local segs = pth:split(".")
+		local clean = pth
+		clean = clean:gsub('game:GetService%("([^"]+)"%)', "%1")
+		clean = clean:gsub("game:GetService%('([^']+)'%)", "%1")
+		clean = clean:gsub("^game%.", "")
+		clean = clean:gsub("^Game%.", "")
+
+		local segs = clean:split(".")
 		local cur = game
 		for _, seg in ipairs(segs) do
-			cur = cur:FindFirstChild(seg)
-			if not cur then error("not found: " .. seg) end
+			local child = cur:FindFirstChild(seg)
+			if not child then
+				child = pcall(function() return game:GetService(seg) end) and game:GetService(seg) or nil
+			end
+			if not child then error("not found: " .. seg) end
+			cur = child
 		end
 
 		if not (cur:IsA("ModuleScript") or cur:IsA("LocalScript") or cur:IsA("Script")) then
